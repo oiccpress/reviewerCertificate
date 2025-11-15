@@ -10,6 +10,10 @@
  *
  * @brief Generates PDF certificates for reviewers
  */
+namespace APP\plugins\generic\reviewerCertificate\classes;
+
+use APP\core\Application;
+use PKP\core\Core;
 
 // Load TCPDF library - try multiple locations
 $tcpdfLocations = array(
@@ -31,7 +35,7 @@ foreach ($tcpdfLocations as $tcpdfPath) {
 }
 
 if (!$tcpdfLoaded) {
-    throw new Exception(
+    throw new \Exception(
         'TCPDF library not found. The plugin should include TCPDF in lib/tcpdf/ directory. ' .
         'Please reinstall the plugin or contact the administrator.'
     );
@@ -120,7 +124,7 @@ class CertificateGenerator {
      */
     public function generatePDF() {
         // Create new PDF document
-        $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+        $pdf = new \TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
         // Set document information
         $pdf->SetCreator('OJS Reviewer Certificate Plugin');
@@ -177,7 +181,7 @@ class CertificateGenerator {
                 // Add background image
                 try {
                     $pdf->Image($backgroundImage, 0, 0, $pageWidth, $pageHeight, '', '', '', false, 300, '', false, false, 0);
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     error_log("ReviewerCertificate: Error adding background image: " . $e->getMessage());
                 }
             }

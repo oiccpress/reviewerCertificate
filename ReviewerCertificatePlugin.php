@@ -10,12 +10,26 @@
  *
  * @brief Reviewer Certificate Plugin - Enables reviewers to generate and download personalized PDF certificates
  */
+namespace APP\plugins\generic\reviewerCertificate;
 
-import('lib.pkp.classes.plugins.GenericPlugin');
-import('lib.pkp.classes.core.JSONMessage');
-import('lib.pkp.classes.config.Config');
-
+use APP\core\Application;
 use APP\facades\Repo;
+use APP\plugins\generic\reviewerCertificate\classes\Certificate;
+use APP\plugins\generic\reviewerCertificate\classes\CertificateDAO;
+use APP\plugins\generic\reviewerCertificate\classes\CertificateGenerator;
+use APP\plugins\generic\reviewerCertificate\classes\form\CertificateSettingsForm;
+use APP\plugins\generic\reviewerCertificate\classes\migration\ReviewerCertificateInstallMigration;
+use APP\plugins\generic\reviewerCertificate\classes\ReviewerCertificateMailable;
+use APP\template\TemplateManager;
+use Illuminate\Support\Facades\Mail;
+use PKP\config\Config;
+use PKP\core\Core;
+use PKP\core\JSONMessage;
+use PKP\db\DAORegistry;
+use PKP\linkAction\LinkAction;
+use PKP\linkAction\request\AjaxModal;
+use PKP\plugins\GenericPlugin;
+use PKP\plugins\Hook;
 
 class ReviewerCertificatePlugin extends GenericPlugin {
 
@@ -27,17 +41,25 @@ class ReviewerCertificatePlugin extends GenericPlugin {
 
         if ($success && $this->getEnabled($mainContextId)) {
             // Import and register DAOs
-            $this->import('classes.CertificateDAO');
             $certificateDao = new CertificateDAO();
             DAORegistry::registerDAO('CertificateDAO', $certificateDao);
 
             // Register hooks
-            HookRegistry::register('LoadHandler', array($this, 'setupHandler'));
-            HookRegistry::register('TemplateManager::display', array($this, 'addCertificateButton'));
-            HookRegistry::register('reviewassignmentdao::_updateobject', array($this, 'handleReviewComplete'));
+            Hook::add('LoadHandler', array($this, 'setupHandler'));
+            Hook::add('Mailer::Mailables', [$this, 'addMailable']);
+            Hook::add('TemplateManager::display', array($this, 'addCertificateButton'));
+            Hook::add('reviewassignmentdao::_updateobject', array($this, 'handleReviewComplete'));
         }
 
         return $success;
+    }
+
+    /**
+     * Add mailable to the list of mailables in the application
+     */
+    public function addMailable(string $hookName, array $args): void
+    {
+        $args[0]->push(ReviewerCertificateMailable::class);
     }
 
     /**
@@ -82,7 +104,6 @@ class ReviewerCertificatePlugin extends GenericPlugin {
      */
     public function getActions($request, $verb) {
         $router = $request->getRouter();
-        import('lib.pkp.classes.linkAction.request.AjaxModal');
 
         return array_merge(
             $this->getEnabled() ? array(
@@ -106,11 +127,15 @@ class ReviewerCertificatePlugin extends GenericPlugin {
     public function manage($args, $request) {
         $verb = $request->getUserVar('verb');
 
+        if(@$_GET['__install']) {
+            $rcim = new ReviewerCertificateInstallMigration();
+            $rcim->up();
+        }
+
         switch ($verb) {
             case 'settings':
                 $context = $request->getContext();
 
-                $this->import('classes.form.CertificateSettingsForm');
                 $form = new CertificateSettingsForm($this, $context->getId());
 
                 if ($request->getUserVar('save')) {
@@ -136,7 +161,6 @@ class ReviewerCertificatePlugin extends GenericPlugin {
 
             case 'preview':
                 $context = $request->getContext();
-                $this->import('classes.CertificateGenerator');
 
                 // Create a sample certificate for preview
                 $generator = new CertificateGenerator();
@@ -179,8 +203,8 @@ class ReviewerCertificatePlugin extends GenericPlugin {
                     return new JSONMessage(false, __('plugins.generic.reviewerCertificate.batch.noSelection'));
                 }
 
+                /** @var CertificateDAO */
                 $certificateDao = DAORegistry::getDAO('CertificateDAO');
-                $this->import('classes.Certificate');
 
                 $generated = 0;
                 $errors = array();
@@ -189,7 +213,7 @@ class ReviewerCertificatePlugin extends GenericPlugin {
                     // Set database lock wait timeout to fail fast if there are locks
                     try {
                         $certificateDao->update('SET SESSION innodb_lock_wait_timeout = 10');
-                    } catch (Exception $e) {
+                    } catch (\Exception $e) {
                         error_log('ReviewerCertificate: Could not set lock timeout: ' . $e->getMessage());
                     }
                     foreach ($reviewerIds as $reviewerId) {
@@ -239,10 +263,10 @@ class ReviewerCertificatePlugin extends GenericPlugin {
                                     $dbPass = Config::getVar('database', 'password');
                                     $dbName = Config::getVar('database', 'name');
 
-                                    $dbConn = new mysqli($dbHost, $dbUser, $dbPass, $dbName);
+                                    $dbConn = new \mysqli($dbHost, $dbUser, $dbPass, $dbName);
 
                                     if ($dbConn->connect_error) {
-                                        throw new Exception("Connection failed: " . $dbConn->connect_error);
+                                        throw new \Exception("Connection failed: " . $dbConn->connect_error);
                                     }
 
                                     // Use direct mysqli prepare/execute
@@ -254,7 +278,7 @@ class ReviewerCertificatePlugin extends GenericPlugin {
                                     $stmt = $dbConn->prepare($insertSql);
 
                                     if (!$stmt) {
-                                        throw new Exception("Failed to prepare statement: " . $dbConn->error);
+                                        throw new \Exception("Failed to prepare statement: " . $dbConn->error);
                                     }
 
                                     $reviewerId = (int) $certificate->getReviewerId();
@@ -280,13 +304,13 @@ class ReviewerCertificatePlugin extends GenericPlugin {
                                         $generated++;
                                         error_log("ReviewerCertificate: Created certificate ID $insertId for review_id={$row->review_id} (code: $certCode)");
                                     } else {
-                                        throw new Exception("Execute failed: " . $stmt->error);
+                                        throw new \Exception("Execute failed: " . $stmt->error);
                                     }
 
                                     $stmt->close();
                                     $dbConn->close();
 
-                                } catch (Throwable $insertError) {
+                                } catch (\Throwable $insertError) {
                                     error_log("ReviewerCertificate: Failed to create certificate for review_id={$row->review_id}: " . $insertError->getMessage());
 
                                     // Check if it's a lock timeout error
@@ -312,7 +336,7 @@ class ReviewerCertificatePlugin extends GenericPlugin {
                     $response->setContent(array('generated' => $generated));
                     return $response;
 
-                } catch (Throwable $e) {
+                } catch (\Throwable $e) {
                     // Catch both Exception and Error objects (PHP 7+)
                     error_log('ReviewerCertificate batch generation error: ' . $e->getMessage());
                     error_log('ReviewerCertificate batch generation stack trace: ' . $e->getTraceAsString());
@@ -341,7 +365,6 @@ class ReviewerCertificatePlugin extends GenericPlugin {
         $page = $params[0];
 
         if ($page == 'certificate') {
-            $this->import('controllers.CertificateHandler');
 
             // Check if handler class file was loaded
             if (!class_exists('CertificateHandler')) {
@@ -415,6 +438,7 @@ class ReviewerCertificatePlugin extends GenericPlugin {
             }
 
             // Fetch review assignments for this submission
+            /** @var ReviewAssignmentDAO */
             $reviewAssignmentDao = DAORegistry::getDAO('ReviewAssignmentDAO');
             $reviewAssignments = $reviewAssignmentDao->getBySubmissionId($templateVar->getId());
 
@@ -458,6 +482,7 @@ class ReviewerCertificatePlugin extends GenericPlugin {
         }
 
         // Check if certificate exists or if reviewer is eligible
+        /** @var CertificateDAO */
         $certificateDao = DAORegistry::getDAO('CertificateDAO');
         $certificate = $certificateDao->getByReviewId($reviewAssignment->getId());
 
@@ -551,6 +576,7 @@ class ReviewerCertificatePlugin extends GenericPlugin {
      * Create certificate record
      */
     private function createCertificateRecord($reviewAssignment) {
+        /** @var CertificateDAO */
         $certificateDao = DAORegistry::getDAO('CertificateDAO');
 
         // Check if certificate already exists
@@ -558,7 +584,6 @@ class ReviewerCertificatePlugin extends GenericPlugin {
             return;
         }
 
-        $this->import('classes.Certificate');
         $certificate = new Certificate();
         $certificate->setReviewerId($reviewAssignment->getReviewerId());
         $certificate->setSubmissionId($reviewAssignment->getSubmissionId());
@@ -580,20 +605,21 @@ class ReviewerCertificatePlugin extends GenericPlugin {
         // Use Repo facade for OJS 3.4 compatibility
         $reviewer = Repo::user()->get($reviewAssignment->getReviewerId());
 
-        import('lib.pkp.classes.mail.MailTemplate');
-        $mail = new MailTemplate('REVIEWER_CERTIFICATE_AVAILABLE');
-
-        $mail->setReplyTo($context->getData('contactEmail'), $context->getData('contactName'));
-        $mail->addRecipient($reviewer->getEmail(), $reviewer->getFullName());
-
-        $mail->assignParams(array(
+        $mailable = new ReviewerCertificateMailable(array(
             'reviewerName' => $reviewer->getFullName(),
             'certificateUrl' => $request->url(null, 'certificate', 'download', $reviewAssignment->getId()),
             'journalName' => $context->getLocalizedName(),
             'journalUrl' => $request->url($context->getPath()),
         ));
+        $template = Repo::emailTemplate()->getByKey($context->getId(), $mailable::getEmailTemplateKey());
+        $locale = $context->getPrimaryLocale();
+        $mailable
+            ->sender($request->getUser())
+            ->to($reviewer->getEmail(), $reviewer->getFullName())
+            ->subject($template->getLocalizedData('subject', $locale))
+            ->body($template->getLocalizedData('body', $locale));
 
-        $mail->send($request);
+        Mail::send($mailable);
     }
 
     /**
@@ -619,7 +645,6 @@ class ReviewerCertificatePlugin extends GenericPlugin {
      * @return \Illuminate\Database\Migrations\Migration
      */
     public function getInstallMigration() {
-        $this->import('classes.migration.ReviewerCertificateInstallMigration');
         return new \APP\plugins\generic\reviewerCertificate\classes\migration\ReviewerCertificateInstallMigration();
     }
 

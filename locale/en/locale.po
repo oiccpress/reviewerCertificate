@@ -267,3 +267,15 @@ msgstr "Total Downloads"
 
 msgid "plugins.generic.reviewerCertificate.stats.averageDownloads"
 msgstr "Average Downloads per Certificate"
+
+msgid "plugins.generic.reviewerCertificate.stats.emailTemplateName"
+msgstr "Review Certificate Notification"
+
+msgid "plugins.generic.reviewerCertificate.stats.emailTemplateDescription"
+msgstr "Notification for reviewers to download their certificate"
+
+msgid "plugins.generic.reviewerCertificate.stats.emailTemplateSubject"
+msgstr "Your Review Certificate is Ready"
+
+msgid "plugins.generic.reviewerCertificate.stats.emailTemplateBody"
+msgstr "Dear {$reviewerName},\n\nThank you for completing your peer review. As a token of our appreciation, a certificate of recognition is now available for you to download.\n\nYou can download your certificate by visiting the following link:\n{$certificateUrl}\n\nThis certificate acknowledges your valuable contribution to the peer review process and can be added to your professional portfolio.\n\nThank you again for your time and expertise.\n\nBest regards,\n{$journalName}\n{$journalUrl}"

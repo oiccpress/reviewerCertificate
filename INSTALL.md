@@ -39,6 +39,12 @@ chmod -R 755 /path/to/ojs/plugins/generic/reviewerCertificate/
 4. Click the **checkbox** to enable it
 5. Click **Settings** to configure certificate options
 
+You may need to run the following to install tables and email template:
+
+```bash
+php lib/pkp/tools/installPluginVersion.php plugins/generic/reviewerCertificate/version.xml 
+```
+
 ### Step 4: Configure Certificate Settings
 
 1. In the plugin settings:

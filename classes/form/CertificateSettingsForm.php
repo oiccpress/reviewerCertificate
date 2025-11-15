@@ -10,14 +10,18 @@
  *
  * @brief Form for managing certificate settings
  */
+namespace APP\plugins\generic\reviewerCertificate\classes\form;
 
-import('lib.pkp.classes.form.Form');
-import('lib.pkp.classes.form.validation.FormValidator');
-import('lib.pkp.classes.form.validation.FormValidatorPost');
-import('lib.pkp.classes.form.validation.FormValidatorCSRF');
-import('lib.pkp.classes.form.validation.FormValidatorCustom');
-
+use APP\core\Application;
 use APP\facades\Repo;
+use APP\template\TemplateManager;
+use PKP\core\Core;
+use PKP\db\DAORegistry;
+use PKP\form\Form;
+use PKP\form\validation\FormValidator;
+use PKP\form\validation\FormValidatorCSRF;
+use PKP\form\validation\FormValidatorCustom;
+use PKP\form\validation\FormValidatorPost;
 
 class CertificateSettingsForm extends Form {
 

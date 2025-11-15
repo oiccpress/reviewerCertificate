@@ -10,12 +10,20 @@
  *
  * @brief Handle requests for certificate operations
  */
+namespace APP\plugins\generic\reviewerCertificate\controllers;
 
-import('classes.handler.Handler');
-import('lib.pkp.classes.core.JSONMessage');
-import('lib.pkp.classes.security.Role');
-
+use APP\core\Application;
 use APP\facades\Repo;
+use APP\handler\Handler;
+use APP\plugins\generic\reviewerCertificate\classes\Certificate;
+use APP\plugins\generic\reviewerCertificate\classes\CertificateDAO;
+use APP\plugins\generic\reviewerCertificate\classes\CertificateGenerator;
+use APP\template\TemplateManager;
+use PKP\core\Core;
+use PKP\core\JSONMessage;
+use PKP\db\DAORegistry;
+use PKP\plugins\PluginRegistry;
+use PKP\security\authorization\ContextAccessPolicy;
 use PKP\security\Role;
 
 class CertificateHandler extends Handler {
@@ -52,7 +60,6 @@ class CertificateHandler extends Handler {
         }
 
         // For all other operations, require context access
-        import('lib.pkp.classes.security.authorization.ContextAccessPolicy');
         $this->addPolicy(new ContextAccessPolicy($request, $roleAssignments));
 
         return parent::authorize($request, $args, $roleAssignments);
@@ -90,11 +97,12 @@ class CertificateHandler extends Handler {
         if (!$reviewId || !$user) {
             error_log('Certificate download failed: Missing review ID or user');
             http_response_code(404);
-            fatalError('Not found');
+            // fatalError('Not found');
             return;
         }
 
         // Get review assignment
+        /** @var CertificateDAO */
         $reviewAssignmentDao = DAORegistry::getDAO('ReviewAssignmentDAO');
         $reviewAssignment = $reviewAssignmentDao->getById($reviewId);
 
@@ -120,12 +128,12 @@ class CertificateHandler extends Handler {
         }
 
         // Get or create certificate
+        /** @var CertificateDAO */
         $certificateDao = DAORegistry::getDAO('CertificateDAO');
         $certificate = $certificateDao->getByReviewId($reviewId);
 
         if (!$certificate) {
             // Create certificate if it doesn't exist
-            import('plugins.generic.reviewerCertificate.classes.Certificate');
             $certificate = new Certificate();
             $certificate->setReviewerId($reviewAssignment->getReviewerId());
             $certificate->setSubmissionId($reviewAssignment->getSubmissionId());
@@ -173,6 +181,7 @@ class CertificateHandler extends Handler {
 
         if ($certificateCode) {
             // Lookup certificate
+            /** @var CertificateDAO */
             $certificateDao = DAORegistry::getDAO('CertificateDAO');
             $certificate = $certificateDao->getByCertificateCode($certificateCode);
 
@@ -225,8 +234,6 @@ class CertificateHandler extends Handler {
      */
     private function generateAndOutputPDF($reviewAssignment, $certificate, $context) {
         // Load generator
-        $plugin = $this->getPlugin();
-        $plugin->import('classes.CertificateGenerator');
         $generator = new CertificateGenerator();
 
         // Set up generator
@@ -262,13 +269,13 @@ class CertificateHandler extends Handler {
         $generator = new CertificateGenerator();
 
         // Create mock objects for preview
-        $mockReviewAssignment = new stdClass();
+        $mockReviewAssignment = new \stdClass();
         $mockReviewAssignment->dateCompleted = date('Y-m-d H:i:s');
 
-        $mockReviewer = new stdClass();
+        $mockReviewer = new \stdClass();
         $mockReviewer->fullName = 'Dr. Jane Smith';
 
-        $mockSubmission = new stdClass();
+        $mockSubmission = new \stdClass();
         $mockSubmission->title = 'Sample Article Title: A Comprehensive Study';
 
         // Note: This is a simplified preview. In production, you'd want to create proper mock objects
@@ -346,18 +353,19 @@ class CertificateHandler extends Handler {
         foreach ($reviewerIds as $reviewerId) {
             try {
                 // Get completed reviews for this reviewer
+                /** @var ReviewAssignmentDAO */
                 $reviewAssignmentDao = DAORegistry::getDAO('ReviewAssignmentDAO');
                 $reviewAssignments = $reviewAssignmentDao->getByReviewerId($reviewerId);
 
                 foreach ($reviewAssignments as $reviewAssignment) {
                     if ($reviewAssignment->getDateCompleted()) {
                         // Check if certificate already exists
+                        /** @var CertificateDAO */
                         $certificateDao = DAORegistry::getDAO('CertificateDAO');
                         $existing = $certificateDao->getByReviewId($reviewAssignment->getId());
 
                         if (!$existing) {
                             // Create certificate
-                            import('plugins.generic.reviewerCertificate.classes.Certificate');
                             $certificate = new Certificate();
                             $certificate->setReviewerId($reviewerId);
                             $certificate->setSubmissionId($reviewAssignment->getSubmissionId());
@@ -371,7 +379,7 @@ class CertificateHandler extends Handler {
                         }
                     }
                 }
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 $errors[] = "Reviewer ID $reviewerId: " . $e->getMessage();
             }
         }

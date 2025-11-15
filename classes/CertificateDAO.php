@@ -10,9 +10,9 @@
  *
  * @brief Operations for retrieving and modifying Certificate objects
  */
+namespace APP\plugins\generic\reviewerCertificate\classes;
 
-import('lib.pkp.classes.db.DAO');
-import('plugins.generic.reviewerCertificate.classes.Certificate');
+use PKP\db\DAO;
 
 class CertificateDAO extends DAO {
 

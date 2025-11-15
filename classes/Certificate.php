@@ -10,6 +10,9 @@
  *
  * @brief Certificate data model
  */
+namespace APP\plugins\generic\reviewerCertificate\classes;
+
+use PKP\core\DataObject;
 
 class Certificate extends DataObject {
 

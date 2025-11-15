@@ -9,6 +9,6 @@
  * @brief Wrapper for Reviewer Certificate plugin
  */
 
-require_once('ReviewerCertificatePlugin.inc.php');
+use APP\plugins\generic\reviewerCertificate\ReviewerCertificatePlugin;
 
 return new ReviewerCertificatePlugin();
