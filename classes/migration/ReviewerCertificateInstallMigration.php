@@ -23,7 +23,6 @@ class ReviewerCertificateInstallMigration extends Migration {
      * @return void
      */
     public function up(): void {
-        return;
         Schema::create('reviewer_certificate_templates', function (Blueprint $table) {
             $table->bigIncrements('template_id');
             $table->bigInteger('context_id');

@@ -148,7 +148,7 @@ class ReviewerCertificatePlugin extends GenericPlugin {
                         if (isset($_FILES['backgroundImage']) && $_FILES['backgroundImage']['error'] == UPLOAD_ERR_OK) {
                             // File was uploaded - redirect back to Website Settings
                             // Note: We can't control which tab opens - that's handled by JavaScript
-                            $request->redirect(null, 'management', 'settings', 'website');
+                            $request->redirect(null, 'management', 'settings', ['website']);
                         }
 
                         return new JSONMessage(true);
